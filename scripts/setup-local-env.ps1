@@ -33,7 +33,12 @@ if ($content -match '(?m)^AUTH_SECRET=(CHANGE_ME_GENERATE_WITH_openssl_rand_base
 }
 
 $content = $content -replace '(?m)^NODE_ENV=.*$', 'NODE_ENV=production'
-$content = $content -replace '(?m)^CORS_ORIGIN=.*$', 'CORS_ORIGIN=http://localhost:5003'
+$content = $content -replace '(?m)^CORS_ORIGIN=.*$', 'CORS_ORIGIN=*'
+if ($content -match '(?m)^#?\s*AUTH_TRUSTED_ORIGINS=') {
+  $content = $content -replace '(?m)^#?\s*AUTH_TRUSTED_ORIGINS=.*$', 'AUTH_TRUSTED_ORIGINS=*'
+} else {
+  $content = $content.TrimEnd() + "`r`nAUTH_TRUSTED_ORIGINS=*`r`n"
+}
 $content = $content -replace '(?m)^PASSKEY_ORIGIN=.*$', 'PASSKEY_ORIGIN=http://localhost:5003'
 
 Set-Content -LiteralPath $envPath -Value $content -Encoding UTF8

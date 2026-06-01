@@ -76,6 +76,7 @@ const app = new Hono()
 app.use('/*', cors({
   origin: (origin) => {
     const trustedOrigins = ENV.AUTH.TRUSTED_ORIGINS.split(',').map(o => o.trim())
+    if (trustedOrigins.includes('*')) return origin || '*'
     if (!origin) return trustedOrigins[0]
     if (trustedOrigins.includes(origin)) return origin
     return trustedOrigins[0]

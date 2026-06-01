@@ -5,6 +5,24 @@ import { ENV } from '@opencode-manager/shared/config/env'
 
 export type AuthInstance = ReturnType<typeof createAuth>
 
+function getTrustedOrigins() {
+  return ENV.AUTH.TRUSTED_ORIGINS.split(',').map((origin: string) => origin.trim()).filter(Boolean)
+}
+
+function getRequestOrigin(request?: Request) {
+  const origin = request?.headers.get('origin')
+  if (origin) return origin
+
+  const referer = request?.headers.get('referer')
+  if (!referer) return null
+
+  try {
+    return new URL(referer).origin
+  } catch {
+    return null
+  }
+}
+
 export function createAuth(db: Database) {
   const socialProviders: Record<string, { clientId: string; clientSecret: string }> = {}
 
@@ -29,14 +47,21 @@ export function createAuth(db: Database) {
     }
   }
 
-  const baseURL = ENV.AUTH.TRUSTED_ORIGINS.split(',')[0]?.trim() || `http://localhost:${ENV.SERVER.PORT}`
+  const configuredTrustedOrigins = getTrustedOrigins()
+  const allowAnyOrigin = configuredTrustedOrigins.includes('*')
+  const baseURL = configuredTrustedOrigins.find((origin) => origin !== '*') || `http://localhost:${ENV.SERVER.PORT}`
   
   const auth = betterAuth({
     baseURL,
     basePath: '/api/auth',
     database: db,
     secret: ENV.AUTH.SECRET,
-    trustedOrigins: ENV.AUTH.TRUSTED_ORIGINS.split(',').map((o: string) => o.trim()),
+    trustedOrigins: allowAnyOrigin
+      ? (request?: Request) => {
+          const requestOrigin = getRequestOrigin(request)
+          return requestOrigin ? [requestOrigin] : []
+        }
+      : configuredTrustedOrigins,
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 8,
