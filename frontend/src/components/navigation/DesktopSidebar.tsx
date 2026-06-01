@@ -57,7 +57,7 @@ export function DesktopSidebar() {
     } else if (item.key === 'settings') {
       const params = new URLSearchParams(location.search)
       params.set('settings', 'open')
-      params.set('tab', 'account')
+      params.set('tab', 'opencode')
       navigate({ search: params.toString() }, { replace: true })
     } else if (item.key === 'repos') {
       setRepoSwitcherOpen(true)

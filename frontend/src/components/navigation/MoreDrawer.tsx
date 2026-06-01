@@ -96,7 +96,7 @@ export function MoreDrawer({ isOpen, onClose }: MoreDrawerProps) {
     const newParams = new URLSearchParams(location.search)
     newParams.delete('mobileTab')
     newParams.set('settings', 'open')
-    newParams.set('tab', 'account')
+    newParams.set('tab', 'opencode')
     skipHistoryBackOnCloseRef.current = true
     navigate({ search: newParams.toString() }, { replace: true })
     onClose()

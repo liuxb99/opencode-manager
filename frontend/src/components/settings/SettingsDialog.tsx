@@ -63,6 +63,7 @@ export function SettingsDialog() {
       setSectionHistory([])
       return
     }
+    setMobileView(activeTab)
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
@@ -71,7 +72,7 @@ export function SettingsDialog() {
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, close])
+  }, [isOpen, close, activeTab])
 
   const menuItems = [
     { id: 'account', icon: User, label: 'Account', description: 'Profile, passkeys, and sign out' },
@@ -119,7 +120,7 @@ export function SettingsDialog() {
                <X className="w-5 h-5" />
              </Button>
            </div>
-          <Tabs defaultValue="account" value={activeTab} onValueChange={handleTabChange} className="w-full flex flex-col flex-1 min-h-0">
+          <Tabs defaultValue="opencode" value={activeTab} onValueChange={handleTabChange} className="w-full flex flex-col flex-1 min-h-0">
             <div className="px-6 pt-6 pb-4 flex-shrink-0">
               <TabsList className="grid w-full grid-cols-8 bg-card p-1">
                 <TabsTrigger value="account" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-muted-foreground transition-all duration-200">

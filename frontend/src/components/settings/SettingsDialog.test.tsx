@@ -19,6 +19,22 @@ vi.mock('@/components/settings/OpenCodeConfigManager', () => ({
   OpenCodeConfigManager: () => <div data-testid="opencode-settings">OpenCode Config Content</div>,
 }))
 
+vi.mock('@/components/settings/OpenCodeServerAuthSettings', () => ({
+  OpenCodeServerAuthSettings: () => <div data-testid="opencode-auth-settings">OpenCode Auth Content</div>,
+}))
+
+vi.mock('@/components/settings/ManagerTokenSettings', () => ({
+  ManagerTokenSettings: () => <div data-testid="manager-token-settings">Manager Token Content</div>,
+}))
+
+vi.mock('@/components/settings/ServerEnvVarsSettings', () => ({
+  ServerEnvVarsSettings: () => <div data-testid="server-env-settings">Server Env Content</div>,
+}))
+
+vi.mock('@/components/settings/ServerHealthStatus', () => ({
+  ServerHealthStatus: () => <div data-testid="server-health-status">Server Health Content</div>,
+}))
+
 vi.mock('@/components/settings/ProviderSettings', () => ({
   ProviderSettings: () => <div data-testid="providers-settings">Provider Settings Content</div>,
 }))
@@ -82,7 +98,7 @@ describe('SettingsDialog', () => {
     expect(screen.getByTestId('dialog-open')).toBeInTheDocument()
   })
 
-  it('displays menu items in mobile view', () => {
+  it('opens OpenCode settings by default', () => {
     function TestWrapper() {
       const location = useLocation()
       const navigate = useNavigate()
@@ -108,11 +124,6 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByText('Open Settings'))
     expect(screen.getByTestId('dialog-open')).toBeInTheDocument()
 
-    expect(screen.getAllByText('Account').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('General').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Git').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Shortcuts').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('OpenCode').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Providers').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByTestId('opencode-settings').length).toBeGreaterThan(0)
   })
 })

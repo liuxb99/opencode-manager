@@ -77,7 +77,7 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isVersionDialogOpen, setIsVersionDialogOpen] = useState(false)
   const [deleteConfirmConfig, setDeleteConfirmConfig] = useState<OpenCodeConfig | null>(null)
-  const [importSource, setImportSource] = useState<OpenCodeImportSource>('cli')
+  const [importSource, setImportSource] = useState<OpenCodeImportSource>('desktop')
   
   const agentsMdRef = useRef<HTMLButtonElement>(null)
   const commandsRef = useRef<HTMLButtonElement>(null)
@@ -420,16 +420,16 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
   const canImportFromHost = Boolean(importStatus?.configSourcePath || importStatus?.stateSourcePath)
   const importSourceOptions = [
     {
-      source: 'cli' as const,
-      label: 'OpenCode CLI',
-      status: cliImportStatus,
-      isLoading: isCliImportStatusLoading,
-    },
-    {
       source: 'desktop' as const,
       label: 'OpenCode Desktop',
       status: desktopImportStatus,
       isLoading: isDesktopImportStatusLoading,
+    },
+    {
+      source: 'cli' as const,
+      label: 'OpenCode CLI',
+      status: cliImportStatus,
+      isLoading: isCliImportStatusLoading,
     },
   ]
 
@@ -529,15 +529,25 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
        )}
 
        <Card>
-         <CardHeader className="pb-3">
-           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <CardHeader className="pb-3">
+            <Tabs
+              value={importSource}
+              onValueChange={(value) => setImportSource(value as OpenCodeImportSource)}
+              className="w-full"
+            >
+              <TabsList className="grid h-auto w-full grid-cols-2 sm:w-96">
+                <TabsTrigger value="desktop">Desktop</TabsTrigger>
+                <TabsTrigger value="cli">CLI</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                      <CardTitle className="text-sm sm:text-base">Existing OpenCode Host Import</CardTitle>
+                <CardTitle className="text-sm sm:text-base">Existing OpenCode Host Import</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Choose a host source and import compatible OpenCode config and session state into this workspace.
+                  Import From Host will use {importSource === 'desktop' ? 'OpenCode Desktop' : 'OpenCode CLI'}.
                 </p>
               </div>
-             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
              <Button
                variant="outline"
                size="sm"
@@ -569,22 +579,6 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
             </div>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <div className="rounded-lg border border-border p-3">
-              <Label className="text-sm font-medium">Import Source</Label>
-              <Tabs
-                value={importSource}
-                onValueChange={(value) => setImportSource(value as OpenCodeImportSource)}
-                className="mt-2"
-              >
-                <TabsList className="grid h-auto w-full grid-cols-2 sm:w-96">
-                  <TabsTrigger value="cli">OpenCode CLI</TabsTrigger>
-                  <TabsTrigger value="desktop">OpenCode Desktop</TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Import From Host will use {importSource === 'cli' ? 'OpenCode CLI' : 'OpenCode Desktop'}.
-              </p>
-            </div>
             <div className="grid gap-3 lg:grid-cols-2">
               {importSourceOptions.map(({ source, label, status, isLoading }) => {
                 const isSelected = importSource === source

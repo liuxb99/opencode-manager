@@ -216,6 +216,6 @@ describe('DesktopSidebar', () => {
 
     fireEvent.click(screen.getByText('Settings'))
 
-    expect(screen.getByTestId('location').textContent).toBe('/?dialog=files&settings=open&tab=account')
+    expect(screen.getByTestId('location').textContent).toBe('/?dialog=files&settings=open&tab=opencode')
   })
 })
