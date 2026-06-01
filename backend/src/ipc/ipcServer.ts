@@ -7,7 +7,7 @@ import { logger } from '../utils/logger'
 
 function getIPCHandlePath(id: string): string {
   if (process.platform === 'win32') {
-    return `\\\\.\\pipe\\opencode-git-${id}-sock`
+    return `opencode-git-${id}`
   }
   if (process.platform !== 'darwin' && process.env['XDG_RUNTIME_DIR']) {
     return path.join(process.env['XDG_RUNTIME_DIR'], `opencode-git-${id}.sock`)
@@ -107,6 +107,18 @@ export async function createIPCServer(context?: string): Promise<IPCServer> {
 
   return new Promise((resolve, reject) => {
     server.on('error', reject)
+    if (process.platform === 'win32') {
+      server.listen(0, '127.0.0.1', () => {
+        const address = server.address()
+        if (!address || typeof address === 'string') {
+          reject(new Error('Failed to resolve IPC TCP address'))
+          return
+        }
+        resolve(new IPCServer(server, `http://127.0.0.1:${address.port}/${ipcHandlePath}`))
+      })
+      return
+    }
+
     server.listen(ipcHandlePath, () => {
       resolve(new IPCServer(server, ipcHandlePath))
     })

@@ -9,6 +9,7 @@ export interface ForwardRequest {
   headers?: Record<string, string>
   directory?: string
   signal?: AbortSignal
+  suppressErrors?: boolean
 }
 
 export interface JsonRequestOptions {
@@ -107,7 +108,9 @@ export class FetchOpenCodeClient implements OpenCodeClient {
         headers: filteredHeaders,
       })
     } catch (error) {
-      logger.error(`Proxy request failed for ${req.path}:`, error)
+      if (!req.suppressErrors) {
+        logger.error(`Proxy request failed for ${req.path}:`, error)
+      }
       return new Response(JSON.stringify({ error: 'Proxy request failed' }), {
         status: 502,
         headers: { 'Content-Type': 'application/json' },

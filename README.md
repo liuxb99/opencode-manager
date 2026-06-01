@@ -1,117 +1,145 @@
-<p align="center">
-    <img src=".github/social-preview.png" alt="OpenCode Manager" width="600" style="border: none" />
-</p>
+# OpenCode Manager
 
-<p align="center">
-    <strong>Mobile-first web interface for <a href="https://opencode.ai">OpenCode</a> AI agents. Manage, control, and code from any device.</strong>
-</p>
+OpenCode Manager 是一個給 [OpenCode](https://opencode.ai) 使用的 Web UI，可以在瀏覽器中管理 repo、啟動 agent session、查看檔案、處理 Git 工作流程，並透過單一後端管理 OpenCode server。
 
-<p align="center">
-    <a href="https://github.com/chriswritescode-dev/opencode-manager/blob/main/LICENSE">
-        <img src="https://img.shields.io/github/license/chriswritescode-dev/opencode-manager?label=License" alt="License" />
-    </a>
-    <a href="https://github.com/chriswritescode-dev/opencode-manager/stargazers">
-        <img src="https://img.shields.io/github/stars/chriswritescode-dev/opencode-manager?label=Stars" alt="Stars" />
-    </a>
-    <a href="https://github.com/chriswritescode-dev/opencode-manager/releases/latest">
-        <img src="https://img.shields.io/github/v/tag/chriswritescode-dev/opencode-manager" alt="Latest Release" />
-    </a>
-    <a href="https://github.com/chriswritescode-dev/opencode-manager/pulls">
-        <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome" />
-    </a>
-</p>
+本 fork 的預設使用方式是 **Windows 本機啟動，不使用 Docker**。
 
-<p align="center">
-  <img src="docs/images/ocmgr-main.webp" alt="OpenCode Manager" width="600" style="border: none" />
-  <img src="docs/images/ocmgr-mobile.webp" alt="Mobile view" height="400" style="border: none; margin-left: 12px" />
-</p>
+## 快速啟動
 
-## Quick Start
+需求：
 
-```bash
-git clone https://github.com/chriswritescode-dev/opencode-manager.git
-cd opencode-manager
-cp .env.example .env
-echo "AUTH_SECRET=$(openssl rand -base64 32)" >> .env
-docker-compose up -d
-# Open http://localhost:5003
+- Windows
+- Node.js
+- Bun
+- OpenCode CLI
+
+在專案根目錄執行：
+
+```bat
+start-local.bat
 ```
 
-On first launch, you'll be prompted to create an admin account. That's it!
+啟動後開啟：
 
-For local development setup, see the [Development Guide](https://chriswritescode-dev.github.io/opencode-manager/development/setup/).
-
-
-## Features
-
-- **Repositories & Git** — Multi-repo management, local discovery, SSH auth, worktrees, unified diffs, branch and commit management
-- **Chat & Sessions** — Real-time SSE streaming, slash commands, `@file` mentions, Plan/Build modes, Mermaid diagram rendering
-- **Files** — Directory browser with tree view, syntax highlighting, create/rename/delete, ZIP download
-- **Assistant Mode** — Dedicated AI workspace with auto-provisioned skills for schedules, notifications, settings, and repo operations
-- **Schedules** — Recurring repo jobs with reusable prompts, run history, linked sessions, markdown-rendered output
-- **MCP Servers** — Add, configure, authenticate, and manage local or remote MCP servers with OAuth support
-- **AI Configuration** — Model/provider setup, API keys, OAuth for Anthropic and GitHub Copilot, custom agent definitions
-- **Skills** — Extend agent capabilities with shareable, scoped skill definitions
-- **Notifications** — Push notifications for session events, questions, errors, and completions
-- **Audio** — Text-to-speech and speech-to-text (browser native and OpenAI-compatible APIs)
-- **Mobile & PWA** — Responsive mobile-first UI, installable on any device, iOS-optimized
-
-## Architecture
-
-OpenCode Manager is a pnpm workspace with three TypeScript packages:
-
-- `backend/` — Bun + Hono API server with Better Auth, SQLite migrations, OpenCode process management, SSE, schedules, and push notifications.
-- `frontend/` — React + Vite SPA using React Router, TanStack Query, Radix UI/Tailwind, service worker support, and mobile-first navigation.
-- `shared/` — shared Zod schemas, config helpers, types, and utilities consumed by both backend and frontend.
-
-A MkDocs Material site (`docs/`) provides guides, feature docs, configuration, and troubleshooting.
-
-## Development
-
-This repo uses pnpm workspaces for `shared`, `backend`, and `frontend`.
-
-```bash
-pnpm install
-pnpm dev
-pnpm lint
-pnpm typecheck
-pnpm test
+```text
+http://localhost:5003
 ```
 
-See the [Development Guide](https://chriswritescode-dev.github.io/opencode-manager/development/setup/) for local setup, scripts, database notes, and testing.
+第一次進入會要求建立 Admin 帳號。
 
-## Configuration
+## start-local.bat 做了什麼
 
-```bash
-# Required for production
-AUTH_SECRET=your-secure-random-secret  # Generate with: openssl rand -base64 32
+`start-local.bat` 會自動處理：
 
-# Pre-configured admin (optional)
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=your-secure-password
+- 檢查 Node.js、Bun、OpenCode CLI
+- 透過 Corepack 使用 pnpm
+- 建立或修正 `.env`
+- 產生 `AUTH_SECRET`
+- 建立 Windows 用的 `opencode.cmd` shim
+- 啟動前清理舊的 `5003` / `5551` 實例
+- 安裝依賴
+- build backend 與 frontend
+- 啟動 OpenCode Manager backend
 
-# For LAN/remote access
-AUTH_TRUSTED_ORIGINS=http://localhost:5003,https://yourl33tdomain.com
-AUTH_SECURE_COOKIES=false  # Set to true when using HTTPS
+視窗會保留，不會執行完就直接關閉。
+
+## 服務網址與 Port
+
+- OpenCode Manager Web UI / API: `http://localhost:5003`
+- OpenCode server: `http://127.0.0.1:5551`
+
+## 常用指令
+
+檢查本機環境：
+
+```bat
+start-local.bat --check
 ```
 
-For OAuth, Passkeys, Push Notifications (VAPID), and advanced configuration, see the [Configuration Guide](https://chriswritescode-dev.github.io/opencode-manager/configuration/environment/).
+手動啟動開發模式：
 
-## `ocm` CLI
+```bash
+corepack pnpm install
+corepack pnpm dev
+```
 
-OpenCode Manager ships an `ocm` CLI (from `ocm-cli/`) that attaches your local OpenCode TUI to a repo hosted on the Manager. It lists ready repos, attaches via the Manager's `/api/opencode-proxy` (so prompts run on the Manager's filesystem against a single shared OpenCode server), and can tarball-sync the working tree up or down with `ocm push` / `ocm pull`. Running `ocm` inside a local clone auto-detects the matching Manager repo by `origin` URL.
+檢查程式碼：
 
-See the [`ocm` CLI guide](docs/ocm-cli.md) for setup and commands.
+```bash
+corepack pnpm lint
+corepack pnpm --filter backend lint
+corepack pnpm --filter frontend lint
+```
 
-## Documentation
+Build：
 
-- [Getting Started](https://chriswritescode-dev.github.io/opencode-manager/getting-started/installation/) — Installation and first-run setup
-- [Features](https://chriswritescode-dev.github.io/opencode-manager/features/overview/) — Deep dive on all features
-- [Configuration](https://chriswritescode-dev.github.io/opencode-manager/configuration/environment/) — Environment variables and advanced setup
-- [Troubleshooting](https://chriswritescode-dev.github.io/opencode-manager/troubleshooting/) — Common issues and solutions
-- [Development](https://chriswritescode-dev.github.io/opencode-manager/development/setup/) — Contributing and local development
-- [`ocm` CLI](docs/ocm-cli.md) — Attach local OpenCode TUI to Manager repos
+```bash
+corepack pnpm build
+```
 
-## License
+## 專案結構
+
+- `backend/`：Bun + Hono API server，負責 auth、SQLite、OpenCode process、SSE、排程與 Git 操作
+- `frontend/`：React + Vite Web UI
+- `shared/`：前後端共用型別、Zod schema、設定工具
+- `scripts/`：本機啟動與輔助腳本
+- `workspace/`：本機執行時產生的工作目錄，不建議提交
+- `data/`：SQLite 資料庫，不建議提交
+
+## Windows 本機修正
+
+這個版本針對 Windows 本機啟動做了幾個調整：
+
+- Windows IPC 改用 localhost TCP，避免 Bun named pipe `ENOENT`
+- OpenCode 啟動命令在 Windows 使用 `opencode.cmd`
+- health check 啟動等待期間不再輸出 `/doc` connection refused stack trace
+- port 查找在 Windows 使用 PowerShell，而不是 `lsof`
+- `start-local.bat` 啟動前會清理舊實例，避免 `port 5003 in use`
+
+## 疑難排解
+
+如果顯示 `port 5003 in use`：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\stop-local-instances.ps1 -Root .
+```
+
+如果 `.env` 被錯誤寫入像這樣的內容：
+
+```text
+AUTH_SECRET=$(openssl rand -base64 32)
+```
+
+重新執行：
+
+```bat
+start-local.bat --check
+```
+
+如果 `pnpm` 找不到，這個專案會優先使用 Corepack：
+
+```bat
+corepack pnpm --version
+```
+
+如果 OpenCode server 一開始還沒 ready，請等幾秒；正常成功訊息會包含：
+
+```text
+OpenCode server is healthy
+SSE global stream connected
+```
+
+## Git 使用建議
+
+建議不要提交以下本機產物：
+
+- `.env`
+- `data/`
+- `workspace/`
+- `logs/`
+- `node_modules/`
+- `scripts/.bin/`
+
+## 授權
 
 MIT

@@ -42,11 +42,18 @@ function main(argv: string[]): void {
     return process.exit(0)
   }
 
-  const opts: http.RequestOptions = {
-    socketPath: ipcHandlePath,
-    path: '/askpass',
-    method: 'POST'
-  }
+  const opts: http.RequestOptions = ipcHandlePath.startsWith('http://') || ipcHandlePath.startsWith('https://')
+    ? {
+      hostname: new URL(ipcHandlePath).hostname,
+      port: new URL(ipcHandlePath).port,
+      path: '/askpass',
+      method: 'POST'
+    }
+    : {
+      socketPath: ipcHandlePath,
+      path: '/askpass',
+      method: 'POST'
+    }
 
   console.error(`[askpass-main] Connecting to IPC server at ${ipcHandlePath}`)
 

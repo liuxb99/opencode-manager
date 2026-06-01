@@ -96,6 +96,7 @@ const getOpenCodeServerPort = () => ENV.OPENCODE.PORT
 const getOpenCodeServerHost = () => ENV.OPENCODE.HOST
 const getOpenCodeServerPublicUrl = () => ENV.OPENCODE.PUBLIC_URL
 const getOpenCodeServerUsername = () => ENV.OPENCODE.SERVER_USERNAME
+const getOpenCodeCommand = () => process.platform === 'win32' ? 'opencode.cmd' : 'opencode'
 
 class OpenCodeServerManager {
   private static instance: OpenCodeServerManager
@@ -337,7 +338,7 @@ class OpenCodeServerManager {
     delete cleanEnv.OPENCODE
 
     this.serverProcess = spawn(
-      'opencode',
+      getOpenCodeCommand(),
       ['serve', '--port', openCodeServerPort.toString(), '--hostname', openCodeServerHost],
       {
         cwd: openCodeServerDirectory,
@@ -706,6 +707,7 @@ class OpenCodeServerManager {
         method: 'GET',
         path: '/doc',
         signal: AbortSignal.timeout(HEALTH_CHECK_TIMEOUT_MS),
+        suppressErrors: true,
       })
       return response.ok
     } catch {
@@ -740,6 +742,13 @@ class OpenCodeServerManager {
 
   private async findProcessesByPort(port: number): Promise<Array<{pid: number}>> {
     try {
+      if (process.platform === 'win32') {
+        const command = `powershell -NoProfile -Command "(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue).OwningProcess"`
+        const pids = execSync(command).toString().trim().split(/\r?\n/)
+        return [...new Set(pids.filter(Boolean).map(pid => parseInt(pid, 10)).filter(pid => Number.isFinite(pid)))]
+          .map(pid => ({ pid }))
+      }
+
       const pids = execSync(`lsof -ti:${port}`).toString().trim().split('\n')
       return pids.filter(Boolean).map(pid => ({ pid: parseInt(pid) }))
     } catch {

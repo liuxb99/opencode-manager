@@ -1,4 +1,7 @@
 node_modules/
+scripts/.bin/
+agent_workflow*.md
+agent_Tools_Record.md
 *.log
 .env
 .env.local
