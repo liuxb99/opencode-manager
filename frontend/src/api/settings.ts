@@ -270,6 +270,30 @@ export const settingsApi = {
       method: 'DELETE',
     })
   },
+
+  getWorkspaceMode: async (): Promise<{
+    currentMode: 'desktop' | 'cli'
+    desktop: { mode: string; stateDir: string; stateExists: boolean; configSourcePath: string | null; stateSourcePath: string | null; sessionSummary: { sessionCount: number; recentSessions: Array<{ id: string; title: string; updatedAt: number }> } }
+    cli: { mode: string; stateDir: string; stateExists: boolean; configSourcePath: string | null; stateSourcePath: string | null; sessionSummary: { sessionCount: number; recentSessions: Array<{ id: string; title: string; updatedAt: number }> } }
+  }> => {
+    return fetchWrapper(`${API_BASE_URL}/api/settings/workspace-mode`)
+  },
+
+  switchWorkspaceMode: async (mode: 'desktop' | 'cli'): Promise<{ mode: string; restarted: boolean }> => {
+    return fetchWrapper(`${API_BASE_URL}/api/settings/workspace-mode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    })
+  },
+
+  launchApp: async (mode: 'desktop' | 'cli'): Promise<{ success: boolean; launched: boolean; message: string }> => {
+    return fetchWrapper(`${API_BASE_URL}/api/settings/launch-app`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    })
+  },
 }
 
 export interface VersionInfo {

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createBrowserRouter, RouterProvider, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useRef, useCallback } from 'react'
 import { Toaster } from 'sonner'
+import { ChatHome } from './pages/ChatHome'
 import { Repos } from './pages/Repos'
 import { RepoDetail } from './pages/RepoDetail'
 import { SessionDetail } from './pages/SessionDetail'
@@ -206,6 +207,11 @@ const router = createBrowserRouter([
       {
         path: '/',
         element: <Repos />,
+        loader: protectedLoader,
+      },
+      {
+        path: '/chat',
+        element: <ChatHome />,
         loader: protectedLoader,
       },
       {

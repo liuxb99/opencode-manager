@@ -108,6 +108,24 @@ class OpenCodeServerManager {
   private lastStartupError: string | null = null
   private opInProgress: boolean = false
   private openCodeClient: OpenCodeClient | null = null
+  private _stateDir: string | null = null
+  private _stateDirChanged: boolean = false
+
+  setStateDir(dir: string | null): void {
+    const newDir = dir || path.join(getOpenCodeServerDirectory(), '.opencode', 'state')
+    if (this._stateDir !== newDir) {
+      this._stateDirChanged = true
+    }
+    this._stateDir = newDir
+  }
+
+  getStateDir(): string {
+    return this._stateDir || path.join(getOpenCodeServerDirectory(), '.opencode', 'state')
+  }
+
+  clearStateDirChanged(): void {
+    this._stateDirChanged = false
+  }
 
   private constructor() {}
 
@@ -240,8 +258,8 @@ class OpenCodeServerManager {
       logger.info(`OpenCode server already running on port ${openCodeServerPort}`)
       const healthy = await this.checkHealth()
       if (healthy) {
-        if (isDevelopment) {
-          logger.warn('Development mode: Killing existing server for hot reload')
+        if (isDevelopment || this._stateDirChanged) {
+          logger.warn(`${isDevelopment ? 'Development mode' : 'State directory changed'}: Killing existing server for restart`)
           for (const proc of existingProcesses) {
             try {
               process.kill(proc.pid, 'SIGKILL')
@@ -250,6 +268,7 @@ class OpenCodeServerManager {
             }
           }
           await new Promise(r => setTimeout(r, 2000))
+          this._stateDirChanged = false
         } else {
           this.isHealthy = true
           if (existingProcesses[0]) {
@@ -269,6 +288,8 @@ class OpenCodeServerManager {
         await new Promise(r => setTimeout(r, 1000))
       }
     }
+
+    this._stateDirChanged = false
 
     const openCodeServerDirectory = getOpenCodeServerDirectory()
     const openCodeConfigPath = getOpenCodeConfigPath()
@@ -350,9 +371,10 @@ class OpenCodeServerManager {
           ...gitEnv,
           ...gitIdentityEnv,
           GIT_SSH_COMMAND: gitSshCommand,
-          XDG_DATA_HOME: path.join(openCodeServerDirectory, '.opencode/state'),
-          XDG_STATE_HOME: path.join(openCodeServerDirectory, '.opencode/state'),
+          XDG_DATA_HOME: this.getStateDir(),
+          XDG_STATE_HOME: this.getStateDir(),
           XDG_CONFIG_HOME: path.join(openCodeServerDirectory, '.config'),
+          OPENCODE_DB: path.join(this.getStateDir(), 'opencode', 'opencode.db'),
           ...(getOpenCodeServerPublicUrl() ? { OPENCODE_PUBLIC_URL: getOpenCodeServerPublicUrl() } : {}),
           ...(password
             ? {
@@ -612,7 +634,22 @@ class OpenCodeServerManager {
     try {
       logger.info('Restarting OpenCode server (full process restart)')
       await this.stop(true)
+      await new Promise(r => setTimeout(r, 2000))
+
+      const port = getOpenCodeServerPort()
+      const staleProcesses = await this.findProcessesByPort(port)
+      for (const proc of staleProcesses) {
+        try {
+          process.kill(proc.pid, 'SIGKILL')
+          logger.info(`Killed stale process ${proc.pid} on port ${port}`)
+        } catch {
+          logger.debug(`Process ${proc.pid} already gone`)
+        }
+      }
       await new Promise(r => setTimeout(r, 1000))
+
+      this.isHealthy = false
+      this.serverPid = null
       await this.start(false, true)
     } finally {
       this.releaseOp(acquired)

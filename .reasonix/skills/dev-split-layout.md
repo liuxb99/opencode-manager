@@ -1,8 +1,28 @@
+---
+name: dev-split-layout
+description: 改為左右分欄佈局（左 session + 右 chat）
+runAs: subagent
+allowed-tools: read_file, edit_file, write_file, run_command
+---
+你是 DEV-FIXER。自動連續模式，不中斷。
+
+## 任務：將 Repos.tsx 改為左右分欄佈局
+
+檔案：frontend/src/pages/Repos.tsx
+
+### 需求
+- 左欄：session 列表（可搜尋）
+- 右欄：選中 session 的 chat（MessageThread）或歡迎畫面
+- 頂部：WorkspaceModeBar（Desktop/CLI 分頁）
+- 切換 Desktop/CLI 時，左欄 session 列表更新，右欄清空回到歡迎畫面
+
+### 實作
+
+將 Repos.tsx 內容改為：
+
+```tsx
 import { useState, useEffect, useCallback, useRef } from "react"
-import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { useAuth } from "@/hooks/useAuth"
-import { useMobile } from "@/hooks/useMobile"
 import { OpenCodeClient } from "@/api/opencode"
 import { useMessages, useCreateSession } from "@/hooks/useOpenCode"
 import { MessageThread } from "@/components/message/MessageThread"
@@ -12,7 +32,7 @@ import { Header } from "@/components/ui/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PendingActionsGroup } from "@/components/notifications/PendingActionsGroup"
-import { CalendarClock, Settings, LogOut, MessageSquarePlus, Search, Loader2 } from "lucide-react"
+import { MessageSquarePlus, Search, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
 import { showToast } from "@/lib/toast"
@@ -21,9 +41,6 @@ import type { OpenCodeImportSource } from "@/api/types/settings"
 const OPENCODE_API = "/api/opencode"
 
 export function Repos() {
-  const navigate = useNavigate()
-  const { logout } = useAuth()
-  const isMobile = useMobile()
   const promptInputRef = useRef<PromptInputHandle>(null)
   const [workspaceMode, setWorkspaceMode] = useState<OpenCodeImportSource>("desktop")
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
@@ -35,12 +52,7 @@ export function Repos() {
 
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
     queryKey: ["opencode", "all-sessions", workspaceMode],
-    queryFn: async () => {
-      const res = await fetch(`/api/settings/all-sessions?mode=${workspaceMode}`)
-      const data = await res.json()
-      return (data.sessions ?? []) as any[]
-      return new OpenCodeClient(OPENCODE_API).listSessions({ limit: 50 })
-    },
+    queryFn: () => new OpenCodeClient(OPENCODE_API).listSessions({ limit: 50 }),
     staleTime: 10000,
   })
 
@@ -79,27 +91,9 @@ export function Repos() {
 
       <WorkspaceModeBar value={workspaceMode} onChange={setWorkspaceMode} />
 
-      <div className={`flex-1 min-h-0 flex ${isMobile ? 'flex-col' : 'flex-row'}`}>
-        {/* Toolbar column */}
-        {!isMobile && (
-          <div className="w-12 md:w-14 border-r border-border flex flex-col items-center py-2 gap-3 flex-shrink-0 bg-card/30">
-            <button onClick={() => navigate('/chat')} className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground" title="Chat">
-              <MessageSquarePlus className="w-5 h-5" />
-            </button>
-            <button onClick={() => navigate('/schedules')} className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground" title="Schedules">
-              <CalendarClock className="w-5 h-5" />
-            </button>
-            <div className="flex-1" />
-            <button onClick={() => { const params = new URLSearchParams(window.location.search); params.set('settings','open'); window.history.replaceState({},'',`?${params}`); window.dispatchEvent(new CustomEvent('oc:sidebar:action',{detail:{action:'settings'}})) }} className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground" title="Settings">
-              <Settings className="w-5 h-5" />
-            </button>
-            <button onClick={() => logout()} className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground" title="Logout">
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-        {/* Session list panel */}
-        <div className={isMobile ? 'h-[30%] border-b border-border flex flex-col flex-shrink-0 bg-card/20' : 'w-72 border-r border-border flex flex-col flex-shrink-0 bg-card/20'}>
+      <div className="flex-1 min-h-0 flex">
+        {/* Left panel: session list */}
+        <div className="w-64 md:w-72 lg:w-80 border-r border-border flex flex-col flex-shrink-0 bg-card/20">
           <div className="p-2 border-b border-border">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -179,3 +173,9 @@ export function Repos() {
     </div>
   )
 }
+```
+
+### 注意
+- 移除 Dialog, DialogContent import（不再需要）
+- 保留所有必要 import
+- 執行 pnpm --filter frontend build 驗證

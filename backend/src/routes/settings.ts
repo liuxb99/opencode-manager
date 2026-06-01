@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { execSync, spawnSync } from 'child_process'
-import { existsSync } from 'fs'
-import { resolve, dirname } from 'path'
+import { existsSync, statSync } from 'fs'
+import { resolve, dirname, join } from 'path'
 import type { Database } from 'bun:sqlite'
 import { SettingsService } from '../services/settings'
 import { writeFileContent, readFileContent, fileExists } from '../services/file-operations'
@@ -30,6 +30,7 @@ import { validateSSHPrivateKey } from '../utils/ssh-validation'
 import { encryptSecret } from '../utils/crypto'
 import { compareVersions, isValidVersion } from '../utils/version-utils'
 import { getImportedSessionDirectories, getOpenCodeImportStatus, OpenCodeImportProtectionError, syncOpenCodeImport } from '../services/opencode-import'
+import { WorkspaceModeService } from '../services/workspace-mode'
 import { relinkReposFromSessionDirectories } from '../services/repo'
 import { ENV } from '@opencode-manager/shared/config/env'
 import {
@@ -1578,6 +1579,210 @@ export function createSettingsRoutes(db: Database, gitAuthService: GitAuthServic
     } catch (error) {
       logger.error('Failed to rotate manager token:', error)
       return c.json({ error: 'Failed to rotate manager token' }, 500)
+    }
+  })
+
+  app.get('/workspace-mode', async (c) => {
+    try {
+      const ws = new WorkspaceModeService(db)
+      const currentMode = ws.getCurrentMode()
+      const desktopStatus = await ws.getModeStatus('desktop')
+      const cliStatus = await ws.getModeStatus('cli')
+      return c.json({ currentMode, desktop: desktopStatus, cli: cliStatus })
+    } catch (error) {
+      logger.error('Failed to get workspace mode:', error)
+      return c.json({ error: 'Failed to get workspace mode' }, 500)
+    }
+  })
+
+  app.post('/workspace-mode', async (c) => {
+    try {
+      const { mode } = await c.req.json() as { mode: string }
+      if (mode !== 'desktop' && mode !== 'cli') {
+        return c.json({ error: 'Invalid mode. Must be "desktop" or "cli"' }, 400)
+      }
+      const ws = new WorkspaceModeService(db)
+      const result = await ws.switchMode(mode)
+      logger.info(`Switched workspace mode to ${mode}, restarted: ${result.restarted}`)
+      return c.json(result)
+    } catch (error) {
+      logger.error('Failed to switch workspace mode:', error)
+      return c.json({ error: 'Failed to switch workspace mode', details: error instanceof Error ? error.message : 'Unknown error' }, 500)
+    }
+  })
+
+  // ── Helper functions for finding Desktop/CLI executables ──────────
+  function findDesktopExe(): string | null {
+    // 1. Environment variable override
+    if (process.env.OPENCODE_DESKTOP_PATH) {
+      return process.env.OPENCODE_DESKTOP_PATH
+    }
+
+    // 2. Scan common locations
+    const candidates: string[] = []
+
+    if (process.platform === 'win32') {
+      const localAppData = process.env.LOCALAPPDATA || ''
+      const progFiles = process.env.PROGRAMFILES || 'C:\\Program Files'
+      const progFilesX86 = process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)'
+      const userProfile = process.env.USERPROFILE || ''
+
+      candidates.push(
+        join(localAppData, 'Programs', '@opencode-ai', 'desktop', 'OpenCode.exe'),
+        join(localAppData, 'Programs', 'OpenCode', 'OpenCode.exe'),
+        join(localAppData, '@opencode-ai', 'desktop', 'OpenCode.exe'),
+        join(progFiles, '@opencode-ai', 'desktop', 'OpenCode.exe'),
+        join(progFiles, 'OpenCode', 'OpenCode.exe'),
+        join(progFilesX86, '@opencode-ai', 'desktop', 'OpenCode.exe'),
+        join(progFilesX86, 'OpenCode', 'OpenCode.exe'),
+        join(userProfile, 'AppData', 'Local', 'Programs', '@opencode-ai', 'desktop', 'OpenCode.exe'),
+        // user's dev build
+        join(userProfile, 'Desktop', 'opencode', 'packages', 'desktop', 'dist', 'OpenCode.exe'),
+      )
+    } else if (process.platform === 'darwin') {
+      candidates.push(
+        '/Applications/OpenCode.app/Contents/MacOS/OpenCode',
+        join(process.env.HOME || '', 'Applications', 'OpenCode.app', 'Contents', 'MacOS', 'OpenCode'),
+      )
+    } else {
+      candidates.push(
+        '/opt/opencode/opencode',
+        '/usr/local/bin/opencode-desktop',
+        join(process.env.HOME || '', '.local', 'bin', 'opencode-desktop'),
+      )
+    }
+
+    // 3. Return first existing path
+    for (const exePath of candidates) {
+      try {
+        const stat = statSync(exePath)
+        if (stat.isFile()) return exePath
+      } catch { /* not found */ }
+    }
+
+    return null
+  }
+
+  function findCliCommand(): string {
+    // 1. Environment variable override
+    if (process.env.OPENCODE_CLI_PATH) {
+      return process.env.OPENCODE_CLI_PATH
+    }
+
+    // 2. Default: rely on PATH
+    const candidates: string[] = ['opencode']
+
+    if (process.platform === 'win32') {
+      const userProfile = process.env.USERPROFILE || ''
+      candidates.push(
+        join(userProfile, 'Desktop', 'opencode', 'packages', 'opencode', 'bin', 'opencode'),
+        join(userProfile, 'AppData', 'Roaming', 'npm', 'node_modules', '@opencode-ai', 'cli', 'bin', 'opencode'),
+      )
+    } else {
+      candidates.push(
+        join(process.env.HOME || '', '.npm', 'global', 'lib', 'node_modules', '@opencode-ai', 'cli', 'bin', 'opencode'),
+        '/usr/local/bin/opencode',
+      )
+    }
+
+    // 3. Return first existing, fall back to 'opencode' (PATH lookup)
+    for (const cmd of candidates) {
+      try {
+        if (cmd === 'opencode') return cmd // always valid as PATH lookup
+        const stat = statSync(cmd)
+        if (stat.isFile() || stat.isSymbolicLink()) return cmd
+      } catch { /* not found */ }
+    }
+
+    return 'opencode'
+  }
+  // ──────────────────────────────────────────────────────────────────
+
+  app.post('/launch-app', async (c) => {
+    try {
+      const { mode } = await c.req.json() as { mode: string }
+
+      if (mode === 'desktop') {
+        // Check if Desktop app is already running
+        let running = false
+        try {
+          const result = $`tasklist /FI "IMAGENAME eq OpenCode.exe" /NH`.text()
+          running = result.includes('OpenCode.exe')
+        } catch { /* ignore */ }
+
+        if (running) {
+          return c.json({ success: true, launched: false, message: 'Desktop already running' })
+        }
+
+        // Find and launch Desktop app
+        const exePath = findDesktopExe()
+        if (!exePath) {
+          const desktopPath = process.env.OPENCODE_DESKTOP_PATH
+          const hint = desktopPath
+            ? `Path set via OPENCODE_DESKTOP_PATH ("${desktopPath}") not found`
+            : 'Desktop app not found. Install from opencode.ai or set OPENCODE_DESKTOP_PATH env var'
+          logger.warn('Desktop app executable not found')
+          return c.json({ success: false, launched: false, message: hint })
+        }
+
+        Bun.spawn([exePath], { detached: true, stdio: ['ignore', 'ignore', 'ignore'] })
+        logger.info(`Launched Desktop app from ${exePath}`)
+        return c.json({ success: true, launched: true, message: 'Desktop app launched' })
+      }
+
+      if (mode === 'cli') {
+        // Check if opencode CLI server is already running on port 5551
+        let running = false
+        try {
+          const resp = await fetch('http://127.0.0.1:5551/api/health')
+          running = resp.ok
+        } catch { /* not running */ }
+
+        if (running) {
+          return c.json({ success: true, launched: false, message: 'CLI already running' })
+        }
+
+        // Find CLI command
+        const cliCmd = findCliCommand()
+
+        // Launch CLI in a new terminal window
+        if (process.platform === 'win32') {
+          Bun.spawn(['cmd', '/c', 'start', 'OpenCode CLI', cliCmd], {
+            detached: true,
+            stdio: ['ignore', 'ignore', 'ignore'],
+          })
+        } else if (process.platform === 'darwin') {
+          Bun.spawn(['open', '-a', 'Terminal', cliCmd], {
+            detached: true,
+            stdio: ['ignore', 'ignore', 'ignore'],
+          })
+        } else {
+          Bun.spawn(['x-terminal-emulator', '-e', cliCmd], {
+            detached: true,
+            stdio: ['ignore', 'ignore', 'ignore'],
+          })
+        }
+
+        logger.info(`Launched CLI in terminal (command: ${cliCmd})`)
+        return c.json({ success: true, launched: true, message: 'CLI launched' })
+      }
+
+      return c.json({ success: false, message: `Unknown mode: ${mode}` }, 400)
+    } catch (err) {
+      logger.error('Failed to launch app:', err)
+      return c.json({ success: false, message: String(err) }, 500)
+    }
+  })
+
+  app.get('/all-sessions', async (c) => {
+    try {
+      const mode = (c.req.query('mode') || 'desktop') as 'desktop' | 'cli'
+      const { readAllSessions } = await import('../services/desktop-state')
+      const sessions = await readAllSessions(mode)
+      return c.json({ sessions })
+    } catch (error) {
+      logger.error('Failed to get sessions:', error)
+      return c.json({ error: 'Failed to get sessions' }, 500)
     }
   })
 

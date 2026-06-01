@@ -5,7 +5,7 @@ export function Workspace() {
   return (
     <div className="h-screen bg-gradient-to-br from-background via-background to-background flex flex-col">
       <Header>
-        <Header.BackButton to="/repos" />
+        <Header.BackButton to="/" />
         <Header.Title>Workspace</Header.Title>
       </Header>
 

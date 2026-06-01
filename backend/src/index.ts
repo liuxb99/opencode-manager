@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { readFile } from 'fs/promises'
+import path from 'path'
 import { initializeDatabase } from './db/schema'
 import { createRepoRoutes } from './routes/repos'
 import { createIPCServer, type IPCServer } from './ipc/ipcServer'
@@ -29,6 +30,7 @@ import { createOAuthRoutes } from './routes/oauth'
 import { createSSERoutes } from './routes/sse'
 import { createSSHRoutes } from './routes/ssh'
 import { createNotificationRoutes } from './routes/notifications'
+import { WorkspaceModeService } from './services/workspace-mode'
 import { createMcpOauthProxyRoutes } from './routes/mcp-oauth-proxy'
 import { createAuthRoutes, createAuthInfoRoutes, syncAdminFromEnv } from './routes/auth'
 import { createAuth } from './auth'
@@ -271,6 +273,14 @@ try {
   await syncAdminFromEnv(auth, db)
 
   opencodeServerManager.setDatabase(db)
+
+  const wsModeService = new WorkspaceModeService(db)
+  const currentMode = wsModeService.getCurrentMode()
+  const stateDir = await wsModeService.getModeStateDir(currentMode)
+  await wsModeService.ensureDatabaseExists(stateDir)
+  opencodeServerManager.setStateDir(stateDir)
+  logger.info(`Initial workspace mode: ${currentMode}, state directory: ${stateDir}`)
+
   const openCodeStatus = await openCodeSupervisor.start()
   if (openCodeStatus.healthy) {
     logger.info(`OpenCode server running on port ${openCodeStatus.port}`)

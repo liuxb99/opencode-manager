@@ -66,6 +66,16 @@ function getDesktopDataPath(): string {
 function getImportSourcePaths(source: OpenCodeImportSource = 'cli'): ImportSourcePaths {
   if (source === 'desktop') {
     const desktopPath = getDesktopDataPath()
+    const stateCandidates = [
+      // Windows: also check native OpenCode state directory
+      ...(process.platform === 'win32' ? [
+        process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'opencode') : null,
+        process.env.APPDATA ? path.join(process.env.APPDATA, 'opencode') : null,
+      ].filter((v): v is string => Boolean(v)) : []),
+      path.join(desktopPath, 'opencode'),
+      path.join(desktopPath, 'opencode', 'state'),
+      path.join(desktopPath, '.opencode', 'state', 'opencode'),
+    ]
     return {
       source,
       sourceLabel: 'OpenCode Desktop',
@@ -73,19 +83,32 @@ function getImportSourcePaths(source: OpenCodeImportSource = 'cli'): ImportSourc
         path.join(desktopPath, 'opencode', 'opencode.json'),
         path.join(desktopPath, 'opencode.json'),
       ],
-      stateCandidates: [
-        path.join(desktopPath, 'opencode'),
-        path.join(desktopPath, 'opencode', 'state'),
-        path.join(desktopPath, '.opencode', 'state', 'opencode'),
-      ],
+      stateCandidates,
     }
+  }
+
+  const baseStateCandidates = getImportPathCandidates(
+    'OPENCODE_IMPORT_STATE_PATH',
+    path.join(os.homedir(), '.local', 'share', 'opencode')
+  )
+
+  let stateCandidates: string[]
+  // On Windows, also check %APPDATA%\opencode and %LOCALAPPDATA%\opencode first
+  if (process.platform === 'win32') {
+    const winCandidates = [
+      process.env.APPDATA ? path.join(process.env.APPDATA, 'opencode') : null,
+      process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'opencode') : null,
+    ].filter((v): v is string => Boolean(v))
+    stateCandidates = [...winCandidates, ...baseStateCandidates]
+  } else {
+    stateCandidates = baseStateCandidates
   }
 
   return {
     source,
     sourceLabel: 'OpenCode CLI',
     configCandidates: getImportPathCandidates('OPENCODE_IMPORT_CONFIG_PATH', path.join(os.homedir(), '.config', 'opencode', 'opencode.json')),
-    stateCandidates: getImportPathCandidates('OPENCODE_IMPORT_STATE_PATH', path.join(os.homedir(), '.local', 'share', 'opencode')),
+    stateCandidates,
   }
 }
 
