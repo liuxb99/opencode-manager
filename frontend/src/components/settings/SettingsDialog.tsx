@@ -160,13 +160,13 @@ export function SettingsDialog() {
                 <TabsContent key="shortcuts" value="shortcuts" className="mt-0"><KeyboardShortcuts /></TabsContent>
                 <TabsContent key="opencode" value="opencode" className="mt-0">
                   <div className="space-y-6">
+                    <OpenCodeConfigManager hideHealthStatus />
                     <ServerHealthStatus />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <OpenCodeServerAuthSettings isOpen={authSectionsOpen} onToggle={toggleAuthSections} />
                       <ManagerTokenSettings isOpen={authSectionsOpen} onToggle={toggleAuthSections} />
                     </div>
                     <ServerEnvVarsSettings />
-                    <OpenCodeConfigManager hideHealthStatus />
                   </div>
                 </TabsContent>
                 <TabsContent key="providers" value="providers" className="mt-0"><ProviderSettings /></TabsContent>
@@ -233,11 +233,11 @@ export function SettingsDialog() {
               {mobileView === 'shortcuts' && <div key="shortcuts"><KeyboardShortcuts /></div>}
                 {mobileView === 'opencode' && (
                   <div key="opencode" className="space-y-6">
+                    <OpenCodeConfigManager hideHealthStatus />
                     <ServerHealthStatus />
                     <OpenCodeServerAuthSettings />
                     <ManagerTokenSettings />
                     <ServerEnvVarsSettings />
-                    <OpenCodeConfigManager hideHealthStatus />
                   </div>
                 )}
               {mobileView === 'providers' && <div key="providers"><ProviderSettings /></div>}
