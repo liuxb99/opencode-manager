@@ -77,6 +77,17 @@ Build：
 corepack pnpm build
 ```
 
+## OpenCode 匯入來源切換
+
+設定頁的 `Existing OpenCode Host Import` 可以切換匯入來源：
+
+- `OpenCode CLI`：讀取一般 CLI/server 路徑，例如 `.config/opencode` 與 `.local/share/opencode`
+- `OpenCode Desktop`：讀取桌面端資料夾，例如 `AppData\Roaming\ai.opencode.desktop`
+
+切換來源後，畫面會立即重新偵測並更新可匯入的 config / state 路徑，不需要重啟服務。
+
+注意：桌面端資料可能是 Electron app 的 `.dat` / storage 格式，不一定含有 OpenCode server 可直接匯入的 `opencode.json` 或 `opencode.db`。如果切到 Desktop 後顯示找不到可匯入 state，代表目前桌面端資料格式尚未能直接轉入 Manager。
+
 ## 專案結構
 
 - `backend/`：Bun + Hono API server，負責 auth、SQLite、OpenCode process、SSE、排程與 Git 操作
