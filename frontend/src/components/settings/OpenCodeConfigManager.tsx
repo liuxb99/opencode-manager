@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DeleteDialog } from '@/components/ui/delete-dialog'
 import { CreateConfigDialog } from './CreateConfigDialog'
 import { OpenCodeConfigEditor } from './OpenCodeConfigEditor'
@@ -91,9 +92,15 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
     staleTime: 5 * 60 * 1000,
   })
 
-  const { data: importStatus, isLoading: isImportStatusLoading } = useQuery<OpenCodeImportStatus>({
-    queryKey: ['opencode-import-status', importSource],
-    queryFn: () => settingsApi.getOpenCodeImportStatus(importSource),
+  const { data: cliImportStatus, isLoading: isCliImportStatusLoading } = useQuery<OpenCodeImportStatus>({
+    queryKey: ['opencode-import-status', 'cli'],
+    queryFn: () => settingsApi.getOpenCodeImportStatus('cli'),
+    staleTime: 30 * 1000,
+  })
+
+  const { data: desktopImportStatus, isLoading: isDesktopImportStatusLoading } = useQuery<OpenCodeImportStatus>({
+    queryKey: ['opencode-import-status', 'desktop'],
+    queryFn: () => settingsApi.getOpenCodeImportStatus('desktop'),
     staleTime: 30 * 1000,
   })
 
@@ -162,7 +169,7 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
     onSuccess: async () => {
       await fetchConfigs()
       invalidateConfigCaches(queryClient)
-      queryClient.invalidateQueries({ queryKey: ['opencode-import-status', importSource] })
+      queryClient.invalidateQueries({ queryKey: ['opencode-import-status'] })
     },
   })
 
@@ -408,7 +415,23 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
   }
 
   const isUnhealthy = health?.opencode !== 'healthy'
+  const importStatus = importSource === 'cli' ? cliImportStatus : desktopImportStatus
+  const isImportStatusLoading = importSource === 'cli' ? isCliImportStatusLoading : isDesktopImportStatusLoading
   const canImportFromHost = Boolean(importStatus?.configSourcePath || importStatus?.stateSourcePath)
+  const importSourceOptions = [
+    {
+      source: 'cli' as const,
+      label: 'OpenCode CLI',
+      status: cliImportStatus,
+      isLoading: isCliImportStatusLoading,
+    },
+    {
+      source: 'desktop' as const,
+      label: 'OpenCode Desktop',
+      status: desktopImportStatus,
+      isLoading: isDesktopImportStatusLoading,
+    },
+  ]
 
   return (
     <div className="space-y-6 overflow-y-auto">
@@ -548,38 +571,56 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
           <CardContent className="space-y-3 text-sm">
             <div className="rounded-lg border border-border p-3">
               <Label className="text-sm font-medium">Import Source</Label>
-              <Select
+              <Tabs
                 value={importSource}
                 onValueChange={(value) => setImportSource(value as OpenCodeImportSource)}
+                className="mt-2"
               >
-                <SelectTrigger className="mt-2 w-full sm:w-64">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cli">OpenCode CLI</SelectItem>
-                  <SelectItem value="desktop">OpenCode Desktop</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="rounded-lg border border-border p-3">
-              <p className="font-medium">Selected Source</p>
-              <p className="mt-1 text-muted-foreground">
-                {isImportStatusLoading ? 'Checking...' : importStatus?.sourceLabel || 'Unavailable'}
+                <TabsList className="grid h-auto w-full grid-cols-2 sm:w-96">
+                  <TabsTrigger value="cli">OpenCode CLI</TabsTrigger>
+                  <TabsTrigger value="desktop">OpenCode Desktop</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Import From Host will use {importSource === 'cli' ? 'OpenCode CLI' : 'OpenCode Desktop'}.
               </p>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-lg border border-border p-3">
-                <p className="font-medium">Config Source</p>
-                <p className="mt-1 break-all text-muted-foreground">
-                  {isImportStatusLoading ? 'Checking...' : importStatus?.configSourcePath || 'No importable OpenCode config found'}
-                </p>
-              </div>
-              <div className="rounded-lg border border-border p-3">
-                <p className="font-medium">State Source</p>
-                <p className="mt-1 break-all text-muted-foreground">
-                  {isImportStatusLoading ? 'Checking...' : importStatus?.stateSourcePath || 'No importable OpenCode state found'}
-                </p>
-              </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              {importSourceOptions.map(({ source, label, status, isLoading }) => {
+                const isSelected = importSource === source
+                const hasImportableData = Boolean(status?.configSourcePath || status?.stateSourcePath)
+
+                return (
+                  <div
+                    key={source}
+                    className={cn(
+                      'rounded-lg border p-3',
+                      isSelected ? 'border-primary bg-primary/5' : 'border-border'
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium">{label}</p>
+                      <Badge variant={isSelected ? 'default' : 'secondary'}>
+                        {isSelected ? 'Selected' : hasImportableData ? 'Available' : 'No Data'}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Config Source</p>
+                        <p className="mt-1 break-all text-muted-foreground">
+                          {isLoading ? 'Checking...' : status?.configSourcePath || 'No importable OpenCode config found'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">State Source</p>
+                        <p className="mt-1 break-all text-muted-foreground">
+                          {isLoading ? 'Checking...' : status?.stateSourcePath || 'No importable OpenCode state found'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
             <div className="rounded-lg border border-border p-3">
               <p className="font-medium">Workspace State</p>
