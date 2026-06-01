@@ -515,18 +515,6 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
                 </p>
               </div>
              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-               <Select
-                 value={importSource}
-                 onValueChange={(value) => setImportSource(value as OpenCodeImportSource)}
-               >
-                 <SelectTrigger className="w-full sm:w-48">
-                   <SelectValue />
-                 </SelectTrigger>
-                 <SelectContent>
-                   <SelectItem value="cli">OpenCode CLI</SelectItem>
-                   <SelectItem value="desktop">OpenCode Desktop</SelectItem>
-                 </SelectContent>
-               </Select>
              <Button
                variant="outline"
                size="sm"
@@ -558,6 +546,21 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
             </div>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
+            <div className="rounded-lg border border-border p-3">
+              <Label className="text-sm font-medium">Import Source</Label>
+              <Select
+                value={importSource}
+                onValueChange={(value) => setImportSource(value as OpenCodeImportSource)}
+              >
+                <SelectTrigger className="mt-2 w-full sm:w-64">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cli">OpenCode CLI</SelectItem>
+                  <SelectItem value="desktop">OpenCode Desktop</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="rounded-lg border border-border p-3">
               <p className="font-medium">Selected Source</p>
               <p className="mt-1 text-muted-foreground">
