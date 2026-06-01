@@ -211,8 +211,11 @@ const TestSSHConnectionSchema = z.object({
   passphrase: z.string().optional(),
 })
 
+const OpenCodeImportSourceSchema = z.enum(['cli', 'desktop'])
+
 const SyncOpenCodeImportSchema = z.object({
   overwriteState: z.boolean().optional(),
+  source: OpenCodeImportSourceSchema.optional(),
 })
 
 
@@ -595,7 +598,8 @@ export function createSettingsRoutes(db: Database, gitAuthService: GitAuthServic
 
   app.get('/opencode-import/status', async (c) => {
     try {
-      return c.json(await getOpenCodeImportStatus())
+      const parsedSource = OpenCodeImportSourceSchema.optional().parse(c.req.query('source') || undefined)
+      return c.json(parsedSource ? await getOpenCodeImportStatus(parsedSource) : await getOpenCodeImportStatus())
     } catch (error) {
       logger.error('Failed to get OpenCode import status:', error)
       return c.json({
@@ -615,6 +619,7 @@ export function createSettingsRoutes(db: Database, gitAuthService: GitAuthServic
         userId,
         overwriteState: body.overwriteState ?? false,
         protectExistingState: true,
+        source: body.source,
       })
 
       if (!result.configImported && !result.stateImported) {

@@ -23,7 +23,7 @@ import { parseJsonc, hasJsoncComments } from '@/lib/jsonc'
 import { showToast } from '@/lib/toast'
 import { invalidateConfigCaches } from '@/lib/queryInvalidation'
 import { FetchError } from '@/api/fetchWrapper'
-import type { OpenCodeConfig, OpenCodeImportStatus } from '@/api/types/settings'
+import type { OpenCodeConfig, OpenCodeImportSource, OpenCodeImportStatus } from '@/api/types/settings'
 
 interface Command {
   template: string
@@ -76,6 +76,7 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isVersionDialogOpen, setIsVersionDialogOpen] = useState(false)
   const [deleteConfirmConfig, setDeleteConfirmConfig] = useState<OpenCodeConfig | null>(null)
+  const [importSource, setImportSource] = useState<OpenCodeImportSource>('cli')
   
   const agentsMdRef = useRef<HTMLButtonElement>(null)
   const commandsRef = useRef<HTMLButtonElement>(null)
@@ -91,8 +92,8 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
   })
 
   const { data: importStatus, isLoading: isImportStatusLoading } = useQuery<OpenCodeImportStatus>({
-    queryKey: ['opencode-import-status'],
-    queryFn: () => settingsApi.getOpenCodeImportStatus(),
+    queryKey: ['opencode-import-status', importSource],
+    queryFn: () => settingsApi.getOpenCodeImportStatus(importSource),
     staleTime: 30 * 1000,
   })
 
@@ -157,11 +158,11 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
   })
 
   const syncOpenCodeImportMutation = useMutation({
-    mutationFn: async () => settingsApi.syncOpenCodeImport(),
+    mutationFn: async () => settingsApi.syncOpenCodeImport(false, importSource),
     onSuccess: async () => {
       await fetchConfigs()
       invalidateConfigCaches(queryClient)
-      queryClient.invalidateQueries({ queryKey: ['opencode-import-status'] })
+      queryClient.invalidateQueries({ queryKey: ['opencode-import-status', importSource] })
     },
   })
 
@@ -510,9 +511,22 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
               <div>
                       <CardTitle className="text-sm sm:text-base">Existing OpenCode Host Import</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Import your standalone OpenCode config and session state into this workspace, then restart the server so existing chats can reconnect.
+                  Choose a host source and import compatible OpenCode config and session state into this workspace.
                 </p>
               </div>
+             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+               <Select
+                 value={importSource}
+                 onValueChange={(value) => setImportSource(value as OpenCodeImportSource)}
+               >
+                 <SelectTrigger className="w-full sm:w-48">
+                   <SelectValue />
+                 </SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="cli">OpenCode CLI</SelectItem>
+                   <SelectItem value="desktop">OpenCode Desktop</SelectItem>
+                 </SelectContent>
+               </Select>
              <Button
                variant="outline"
                size="sm"
@@ -540,9 +554,16 @@ export function OpenCodeConfigManager({ hideHealthStatus = false }: OpenCodeConf
                 )}
                 <span className="text-xs sm:text-sm">Import From Host</span>
               </Button>
+             </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
+            <div className="rounded-lg border border-border p-3">
+              <p className="font-medium">Selected Source</p>
+              <p className="mt-1 text-muted-foreground">
+                {isImportStatusLoading ? 'Checking...' : importStatus?.sourceLabel || 'Unavailable'}
+              </p>
+            </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-lg border border-border p-3">
                 <p className="font-medium">Config Source</p>

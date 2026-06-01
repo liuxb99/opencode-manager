@@ -95,6 +95,7 @@ corepack pnpm build
 - health check 啟動等待期間不再輸出 `/doc` connection refused stack trace
 - port 查找在 Windows 使用 PowerShell，而不是 `lsof`
 - `start-local.bat` 啟動前會清理舊實例，避免 `port 5003 in use`
+- 設定頁可切換 OpenCode 匯入來源：OpenCode CLI / OpenCode Desktop，切換後會立即重新顯示可匯入路徑
 
 ## 疑難排解
 

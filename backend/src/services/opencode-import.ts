@@ -11,6 +11,8 @@ import { ensureDirectoryExists, fileExists, readFileContent, writeFileContent } 
 const OPENCODE_STATE_DB_FILENAMES = new Set(['opencode.db', 'opencode.db-shm', 'opencode.db-wal'])
 
 export interface OpenCodeImportStatus {
+  source: OpenCodeImportSource
+  sourceLabel: string
   configSourcePath: string | null
   stateSourcePath: string | null
   workspaceConfigPath: string
@@ -23,6 +25,7 @@ export interface SyncOpenCodeImportOptions {
   userId?: string
   overwriteState?: boolean
   protectExistingState?: boolean
+  source?: OpenCodeImportSource
 }
 
 export interface SyncOpenCodeImportResult extends OpenCodeImportStatus {
@@ -43,6 +46,47 @@ export class OpenCodeImportProtectionError extends Error {
 
 export interface ImportedSessionDirectorySummary {
   directories: string[]
+}
+
+export type OpenCodeImportSource = 'cli' | 'desktop'
+
+interface ImportSourcePaths {
+  source: OpenCodeImportSource
+  sourceLabel: string
+  configCandidates: string[]
+  stateCandidates: string[]
+}
+
+function getDesktopDataPath(): string {
+  return process.env.APPDATA
+    ? path.join(process.env.APPDATA, 'ai.opencode.desktop')
+    : path.join(os.homedir(), 'AppData', 'Roaming', 'ai.opencode.desktop')
+}
+
+function getImportSourcePaths(source: OpenCodeImportSource = 'cli'): ImportSourcePaths {
+  if (source === 'desktop') {
+    const desktopPath = getDesktopDataPath()
+    return {
+      source,
+      sourceLabel: 'OpenCode Desktop',
+      configCandidates: [
+        path.join(desktopPath, 'opencode', 'opencode.json'),
+        path.join(desktopPath, 'opencode.json'),
+      ],
+      stateCandidates: [
+        path.join(desktopPath, 'opencode'),
+        path.join(desktopPath, 'opencode', 'state'),
+        path.join(desktopPath, '.opencode', 'state', 'opencode'),
+      ],
+    }
+  }
+
+  return {
+    source,
+    sourceLabel: 'OpenCode CLI',
+    configCandidates: getImportPathCandidates('OPENCODE_IMPORT_CONFIG_PATH', path.join(os.homedir(), '.config', 'opencode', 'opencode.json')),
+    stateCandidates: getImportPathCandidates('OPENCODE_IMPORT_STATE_PATH', path.join(os.homedir(), '.local', 'share', 'opencode')),
+  }
 }
 
 export function getImportPathCandidates(envKey: string, fallbackPath: string): string[] {
@@ -135,19 +179,22 @@ export async function importOpenCodeStateDirectory(sourcePath: string, targetPat
   }
 }
 
-export async function getOpenCodeImportStatus(): Promise<OpenCodeImportStatus> {
+export async function getOpenCodeImportStatus(source: OpenCodeImportSource = 'cli'): Promise<OpenCodeImportStatus> {
   const workspaceConfigPath = getOpenCodeConfigFilePath()
   const workspaceStatePath = path.join(getWorkspacePath(), '.opencode', 'state', 'opencode')
   const workspaceStateExists = await fileExists(path.join(workspaceStatePath, 'opencode.db'))
+  const sourcePaths = getImportSourcePaths(source)
 
   const configSourcePath = await getFirstExistingPath(
-    getImportPathCandidates('OPENCODE_IMPORT_CONFIG_PATH', path.join(os.homedir(), '.config', 'opencode', 'opencode.json'))
+    sourcePaths.configCandidates
   )
   const stateSourcePath = await getFirstExistingPathWithDatabase(
-    getImportPathCandidates('OPENCODE_IMPORT_STATE_PATH', path.join(os.homedir(), '.local', 'share', 'opencode'))
+    sourcePaths.stateCandidates
   )
 
   return {
+    source: sourcePaths.source,
+    sourceLabel: sourcePaths.sourceLabel,
     configSourcePath,
     stateSourcePath,
     workspaceConfigPath,
@@ -186,7 +233,7 @@ async function importOpenCodeConfigFromSource(db: Database, userId: string, sour
 }
 
 export async function syncOpenCodeImport(options: SyncOpenCodeImportOptions): Promise<SyncOpenCodeImportResult> {
-  const initialStatus = await getOpenCodeImportStatus()
+  const initialStatus = await getOpenCodeImportStatus(options.source)
   const userId = options.userId || 'default'
   const overwriteState = options.overwriteState === true
   let configImported = false
@@ -206,7 +253,7 @@ export async function syncOpenCodeImport(options: SyncOpenCodeImportOptions): Pr
     stateImported = await importOpenCodeStateDirectory(initialStatus.stateSourcePath, initialStatus.workspaceStatePath)
   }
 
-  const finalStatus = await getOpenCodeImportStatus()
+  const finalStatus = await getOpenCodeImportStatus(options.source)
 
   return {
     ...finalStatus,

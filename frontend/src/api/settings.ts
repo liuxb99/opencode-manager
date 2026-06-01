@@ -6,6 +6,7 @@ import type {
   CreateOpenCodeConfigRequest,
   UpdateOpenCodeConfigRequest,
   OpenCodeImportStatus,
+  OpenCodeImportSource,
   SyncOpenCodeImportResponse,
   SkillFileInfo,
   CreateSkillRequest,
@@ -147,15 +148,16 @@ export const settingsApi = {
     })
   },
 
-  getOpenCodeImportStatus: async (): Promise<OpenCodeImportStatus> => {
-    return fetchWrapper(`${API_BASE_URL}/api/settings/opencode-import/status`)
+  getOpenCodeImportStatus: async (source?: OpenCodeImportSource): Promise<OpenCodeImportStatus> => {
+    const search = source ? `?source=${encodeURIComponent(source)}` : ''
+    return fetchWrapper(`${API_BASE_URL}/api/settings/opencode-import/status${search}`)
   },
 
-  syncOpenCodeImport: async (overwriteState = false): Promise<SyncOpenCodeImportResponse> => {
+  syncOpenCodeImport: async (overwriteState = false, source?: OpenCodeImportSource): Promise<SyncOpenCodeImportResponse> => {
     return fetchWrapper(`${API_BASE_URL}/api/settings/opencode-import`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ overwriteState }),
+      body: JSON.stringify({ overwriteState, source }),
     })
   },
 

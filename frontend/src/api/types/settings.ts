@@ -112,7 +112,11 @@ export interface OpenCodeConfigResponse {
   defaultConfig: OpenCodeConfig | null
 }
 
+export type OpenCodeImportSource = 'cli' | 'desktop'
+
 export interface OpenCodeImportStatus {
+  source: OpenCodeImportSource
+  sourceLabel: string
   configSourcePath: string | null
   stateSourcePath: string | null
   workspaceConfigPath: string
